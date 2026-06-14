@@ -1,3 +1,23 @@
+# Namleh Foundry Project Overlay
+
+Foundry is a local-first desktop command room. The primary target is one workstation that coordinates local Codex CLI, Claude CLI, Cursor, local CLIs, Codex plugins, MCP servers, and app connectors through Foundry-owned policy.
+
+Normal conversation and planning stay in the Codex app-server surface. Coding work must be routed by deterministic Foundry policy, not by a model deciding on its own. Policy owns provider selection, runner selection, tool grants, approvals, and evidence capture before any local agent session launches.
+
+Remote runners are future-proofing only. Do not optimize the product around remote machines until the local single-machine workflow is reliable.
+
+Tools are first-class product surfaces. Codex plugins, skills, hooks, MCPs, app connectors, permission profiles, local CLIs, and project rules should be searchable, grouped, policy-aware, and usable by routing and evidence flows.
+
+Foundry's standard tool surfaces for this build are Codex, Claude, Cursor, Bitwarden Secrets Manager, Git/GitHub, Plastic SCM/Unity Version Control, Linear, Supabase, Microsoft 365, Azure, AWS, Cloudflare, Sentry, Melio, local files/terminal/browser, and the platform SDKs/toolchains required by active projects. Neon, Convex, generic document/spreadsheet/presentation shells, Canva, Atlassian, Proton, Hugging Face, and nonstandard cloud/database connectors stay out of the first-class setup unless a specific client/project explicitly resumes that scope.
+
+Microsoft 365 and Azure are first-class day-to-day operations surfaces for this build. Word, Excel, PowerPoint, SharePoint, OneDrive, Outlook, Teams, Microsoft Graph, Entra/Microsoft 365 admin, and Azure tooling should be modeled as policy-aware Foundry tools rather than generic future productivity items.
+
+Slack-specific integrations are deferred for this build. Do not add Slack workflow surfaces until the project explicitly resumes that scope.
+
+Security remains local and explicit: secrets route through Bitwarden Secrets Manager via approved `bws` machine-token access, writes require policy grants, high-risk tools require approval, and persisted evidence must redact token-shaped material.
+
+---
+
 # AionUi - Project Guide
 
 All contributors (human and AI) must follow [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR. ([Chinese version](CONTRIBUTING.zh.md))
