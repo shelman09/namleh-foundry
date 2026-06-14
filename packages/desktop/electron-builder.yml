@@ -1,12 +1,12 @@
-appId: com.aionui.app
-productName: AionUi
-executableName: AionUi
-copyright: Copyright © 2024 AionUi
+appId: com.namlehstudios.foundry
+productName: Namleh Foundry
+executableName: Namleh Foundry
+copyright: Copyright © 2026 Namleh Studios
 
 protocols:
-  - name: AionUi Protocol
+  - name: Namleh Foundry Protocol
     schemes:
-      - aionui
+      - namleh-foundry
 
 asar:
   smartUnpack: true
@@ -173,16 +173,16 @@ linux:
   artifactName: ${productName}-${version}-${os}-${arch}.${ext}
   category: Utility
   maintainer: aionui
-  vendor: aionui
+  vendor: Namleh Studios
   synopsis: ${description}
   description: ${description}
   desktop:
     entry:
-      Name: AionUi
+      Name: Namleh Foundry
       Comment: ${description}
-      Icon: aionui
+      Icon: namleh-foundry
       Categories: Office;Utility;
-      MimeType: x-scheme-handler/aionui;
+      MimeType: x-scheme-handler/namleh-foundry;
 
 npmRebuild: false
 buildDependenciesFromSource: false

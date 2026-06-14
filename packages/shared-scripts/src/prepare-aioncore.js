@@ -2,8 +2,9 @@
  * Prepare aioncore binary for packaging.
  *
  * Resolution order:
- *  1. GitHub Actions artifact download when AIONUI_BACKEND_RUN_ID is set
- *  2. GitHub release download (requires version or defaults to "latest")
+ *  1. Local binary when AIONUI_BACKEND_BIN is set
+ *  2. GitHub Actions artifact download when AIONUI_BACKEND_RUN_ID is set
+ *  3. GitHub release download (requires version or defaults to "latest")
  *
  * Output: {projectRoot}/resources/bundled-aioncore/{platform}-{arch}/
  *   - aioncore[.exe]
@@ -422,10 +423,13 @@ function downloadAndExtract(platform, arch, tag) {
 function prepareAioncore(options) {
   const { projectRoot, platform, arch, version = 'latest' } = options;
   const runtimeKey = `${platform}-${arch}`;
+  const localBinaryPath = (process.env.AIONUI_BACKEND_BIN || '').trim();
   const actionsRunId = (process.env.AIONUI_BACKEND_RUN_ID || '').trim();
 
   let tag = null;
-  if (!actionsRunId) {
+  if (localBinaryPath) {
+    tag = (process.env.AIONUI_BACKEND_VERSION || '').trim() || 'local';
+  } else if (!actionsRunId) {
     // Resolve the actual version tag — release asset filenames include the tag.
     if (version === 'latest') {
       const resolved = resolveLatestTag();
@@ -444,7 +448,9 @@ function prepareAioncore(options) {
   const targetBinaryPath = path.join(targetDir, binaryName);
 
   console.log(
-    `Preparing aioncore for ${runtimeKey} (${actionsRunId ? `actions run: ${actionsRunId}` : `version: ${tag}`})`
+    `Preparing aioncore for ${runtimeKey} (${
+      localBinaryPath ? `local binary: ${localBinaryPath}` : actionsRunId ? `actions run: ${actionsRunId}` : `version: ${tag}`
+    })`
   );
 
   removeDirectorySafe(targetDir);
@@ -455,8 +461,20 @@ function prepareAioncore(options) {
   let sourceDetail = {};
   let tempDir = null;
 
-  // 1. Download from GitHub Actions artifacts when manual build run id is provided.
-  if (actionsRunId) {
+  // 1. Use a caller-provided local binary. This is the Foundry fork path while
+  // backend changes live ahead of upstream AionCore releases.
+  if (localBinaryPath) {
+    if (!fs.existsSync(localBinaryPath) || !fs.statSync(localBinaryPath).isFile()) {
+      throw new Error(`AIONUI_BACKEND_BIN does not point to a file: ${localBinaryPath}`);
+    }
+    sourcePath = localBinaryPath;
+    sourceType = 'local-binary';
+    sourceDetail = { path: localBinaryPath };
+    console.log(`  Using local aioncore binary`);
+  }
+
+  // 2. Download from GitHub Actions artifacts when manual build run id is provided.
+  if (!sourcePath && actionsRunId) {
     const result = downloadAndExtractActionsArtifact(platform, arch, actionsRunId);
     sourcePath = result.binaryPath;
     tempDir = result.tempDir;
@@ -469,7 +487,7 @@ function prepareAioncore(options) {
     console.log(`  Downloaded from GitHub Actions artifact`);
   }
 
-  // 2. Download from GitHub releases.
+  // 3. Download from GitHub releases.
   if (!sourcePath && tag) {
     try {
       const result = downloadAndExtract(platform, arch, tag);
