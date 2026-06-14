@@ -16,7 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import AgentCard from './AgentCard';
 import { AgentHubModal } from './AgentHubModal';
 import InlineAgentEditor, { type CustomAgentDraft } from './InlineAgentEditor';
-import { getAgentKey } from '@/renderer/pages/guid/hooks/agentSelectionUtils';
+import { getAgentKey, sortAgentsForFoundryDefault } from '@/renderer/pages/guid/hooks/agentSelectionUtils';
 
 const LocalAgents: React.FC = () => {
   const { t } = useTranslation();
@@ -86,9 +86,7 @@ const LocalAgents: React.FC = () => {
     [mutateAgents]
   );
 
-  // Aion CLI first among detected agents
-  const aionrsAgent = detectedAgents?.find((a) => a.agent_type === 'aionrs' || a.backend === 'aionrs');
-  const otherDetected = detectedAgents?.filter((a) => a.agent_type !== 'aionrs' && a.backend !== 'aionrs') ?? [];
+  const orderedDetectedAgents = sortAgentsForFoundryDefault(detectedAgents);
 
   const openCustomAgentEditor = useCallback(() => {
     setEditingAgent(null);
@@ -153,10 +151,7 @@ const LocalAgents: React.FC = () => {
         </Typography.Text>
       </div>
       <div className='grid grid-cols-2 gap-10px px-16px md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'>
-        {aionrsAgent && (
-          <AgentCard type='detected' agent={aionrsAgent} onGoToChat={() => goToChatWithAgent(aionrsAgent)} />
-        )}
-        {otherDetected.map((agent) => (
+        {orderedDetectedAgents.map((agent) => (
           <AgentCard
             key={agent.backend || agent.agent_type}
             type='detected'

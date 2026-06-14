@@ -46,6 +46,7 @@ const ALL_LEGACY_KEYS: ConfigKey[] = [
   'workspace.pasteConfirm',
   'upload.saveToWorkspace',
   'guid.lastSelectedAgent',
+  'guid.explicitAionrsSelection',
   'skillsMarket.enabled',
   'pet.enabled',
   'pet.size',

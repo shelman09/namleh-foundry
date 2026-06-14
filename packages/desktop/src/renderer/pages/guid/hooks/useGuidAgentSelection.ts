@@ -20,7 +20,12 @@ import {
 import { getAgentModes } from '@/renderer/utils/model/agentModes';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import useSWR from 'swr';
-import { savePreferredMode, savePreferredModelId, getAgentKey as getAgentKeyUtil } from './agentSelectionUtils';
+import {
+  getPreferredAgentKey,
+  savePreferredMode,
+  savePreferredModelId,
+  getAgentKey as getAgentKeyUtil,
+} from './agentSelectionUtils';
 import { usePresetAssistantResolver } from './usePresetAssistantResolver';
 import { useAgentAvailability } from './useAgentAvailability';
 import { useCustomAgentsLoader } from './useCustomAgentsLoader';
@@ -128,9 +133,9 @@ export const useGuidAgentSelection = ({
 }: UseGuidAgentSelectionOptions): GuidAgentSelectionResult => {
   const [selectedAgentKey, _setSelectedAgentKey] = useState<string>(() => {
     try {
-      return configService.get('guid.lastSelectedAgent') || 'aionrs';
+      return configService.get('guid.lastSelectedAgent') || '';
     } catch {
-      return 'aionrs';
+      return '';
     }
   });
   const [availableAgents, setAvailableAgents] = useState<AvailableAgent[]>();
@@ -145,9 +150,14 @@ export const useGuidAgentSelection = ({
   const setSelectedAgentKey = useCallback((key: string) => {
     initialRestoreDoneRef.current = true;
     _setSelectedAgentKey(key);
-    configService.set('guid.lastSelectedAgent', key).catch((error) => {
-      console.error('Failed to save selected agent:', error);
-    });
+    configService
+      .setBatch({
+        'guid.lastSelectedAgent': key,
+        'guid.explicitAionrsSelection': key === 'aionrs',
+      })
+      .catch((error) => {
+        console.error('Failed to save selected agent:', error);
+      });
   }, []);
 
   // Wrap setSelectedMode to also save preferred mode to the agent's own config
@@ -321,9 +331,14 @@ export const useGuidAgentSelection = ({
         resetHandledRef.current = true;
         const key = getAgentKey(matched);
         _setSelectedAgentKey(key);
-        configService.set('guid.lastSelectedAgent', key).catch((error) => {
-          console.error('Failed to save preselected agent key:', error);
-        });
+        configService
+          .setBatch({
+            'guid.lastSelectedAgent': key,
+            'guid.explicitAionrsSelection': key === 'aionrs',
+          })
+          .catch((error) => {
+            console.error('Failed to save preselected agent key:', error);
+          });
         return;
       }
     }
@@ -335,12 +350,16 @@ export const useGuidAgentSelection = ({
       // New Chat keeps the last-used CLI agent.
       const currentIsPreset = selectedAgentKey.startsWith('custom:');
       if (currentIsPreset) {
-        const firstCliAgent = availableAgents.find((a) => !a.is_preset);
-        const fallbackKey = firstCliAgent ? getAgentKey(firstCliAgent) : 'aionrs';
+        const fallbackKey = getPreferredAgentKey(availableAgents);
         _setSelectedAgentKey(fallbackKey);
-        configService.set('guid.lastSelectedAgent', fallbackKey).catch((error) => {
-          console.error('Failed to save reset agent key:', error);
-        });
+        configService
+          .setBatch({
+            'guid.lastSelectedAgent': fallbackKey,
+            'guid.explicitAionrsSelection': fallbackKey === 'aionrs',
+          })
+          .catch((error) => {
+            console.error('Failed to save reset agent key:', error);
+          });
       }
     }
   }, [availableAgents, resetAssistant, preselectAgentKey, locationKey]);
@@ -360,6 +379,8 @@ export const useGuidAgentSelection = ({
     const restoreSavedSelection = async () => {
       try {
         const savedKey = configService.get('guid.lastSelectedAgent');
+        const savedAionrsWasExplicit = configService.get('guid.explicitAionrsSelection');
+        const fallbackKey = getPreferredAgentKey(availableAgents);
         if (cancelled) return;
 
         if (savedKey) {
@@ -370,16 +391,25 @@ export const useGuidAgentSelection = ({
           }
           // Plain row key — verify it still exists in detected engines
           if (availableAgents.some((agent) => getAgentKey(agent) === savedKey)) {
+            if (savedKey === 'aionrs' && !savedAionrsWasExplicit && fallbackKey !== 'aionrs') {
+              _setSelectedAgentKey(fallbackKey);
+              configService
+                .setBatch({
+                  'guid.lastSelectedAgent': fallbackKey,
+                  'guid.explicitAionrsSelection': false,
+                })
+                .catch((error) => {
+                  console.error('Failed to save default local agent key:', error);
+                });
+              return;
+            }
             _setSelectedAgentKey(savedKey);
             return;
           }
         }
 
-        // No saved preference or stale key — default to first detected engine
-        const firstAgent = availableAgents[0];
-        if (firstAgent) {
-          _setSelectedAgentKey(getAgentKey(firstAgent));
-        }
+        // No saved preference or stale key — default to the preferred local engine.
+        _setSelectedAgentKey(fallbackKey);
       } catch (error) {
         console.error('Failed to load last selected agent:', error);
       }
@@ -521,8 +551,7 @@ export const useGuidAgentSelection = ({
 
   // Key of the first non-preset CLI agent (used as fallback when leaving preset mode)
   const defaultAgentKey = useMemo(() => {
-    const firstCliAgent = availableAgents?.find((a) => !a.is_preset);
-    return firstCliAgent ? getAgentKey(firstCliAgent) : 'aionrs';
+    return getPreferredAgentKey(availableAgents);
   }, [availableAgents]);
 
   return {

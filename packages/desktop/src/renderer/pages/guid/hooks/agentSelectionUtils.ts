@@ -7,6 +7,17 @@
 import { configService } from '@/common/config/configService';
 import type { AgentSource } from '@/renderer/utils/model/agentTypes';
 
+const AION_RUNTIME_AGENT = 'aionrs';
+const FOUNDRY_LOCAL_AGENT_PRIORITY = ['codex', 'claude', 'cursor'];
+
+type SelectableAgent = {
+  agent_type: string;
+  agent_source?: AgentSource;
+  backend?: string;
+  id?: string;
+  is_preset?: boolean;
+};
+
 /** Save preferred mode to the agent's own config key */
 export async function savePreferredMode(agentKey: string, mode: string): Promise<void> {
   try {
@@ -66,3 +77,50 @@ export const getAgentKey = (agent: {
   if (rowScoped && agent.id) return agent.id;
   return agent.backend || agent.agent_type;
 };
+
+export function isAionRuntimeAgent(agent: Pick<SelectableAgent, 'agent_type' | 'backend'>): boolean {
+  return agent.agent_type === AION_RUNTIME_AGENT || agent.backend === AION_RUNTIME_AGENT;
+}
+
+export function isLocalCliAgent(agent: SelectableAgent): boolean {
+  return !agent.is_preset && !isAionRuntimeAgent(agent);
+}
+
+export function sortAgentsForFoundryDefault<T extends SelectableAgent>(agents: T[] | undefined): T[] {
+  if (!agents) return [];
+
+  return agents
+    .map((agent, index) => ({ agent, index }))
+    .sort((left, right) => {
+      const leftRank = getFoundryAgentRank(left.agent);
+      const rightRank = getFoundryAgentRank(right.agent);
+      if (leftRank !== rightRank) return leftRank - rightRank;
+      return left.index - right.index;
+    })
+    .map(({ agent }) => agent);
+}
+
+export function getPreferredLocalAgent<T extends SelectableAgent>(agents: T[] | undefined): T | undefined {
+  return sortAgentsForFoundryDefault(agents).find(isLocalCliAgent);
+}
+
+export function getPreferredAgentKey(agents: SelectableAgent[] | undefined): string {
+  const preferredLocal = getPreferredLocalAgent(agents);
+  if (preferredLocal) return getAgentKey(preferredLocal);
+
+  const fallback = agents?.find((agent) => !agent.is_preset) ?? agents?.[0];
+  return fallback ? getAgentKey(fallback) : AION_RUNTIME_AGENT;
+}
+
+function getFoundryAgentRank(agent: SelectableAgent): number {
+  if (isAionRuntimeAgent(agent)) return 100;
+
+  const backend = agent.backend ?? agent.agent_type;
+  const priorityIndex = FOUNDRY_LOCAL_AGENT_PRIORITY.indexOf(backend);
+  if (priorityIndex >= 0) return priorityIndex;
+
+  if (agent.agent_source === 'custom') return 20;
+  if (agent.agent_type === 'acp') return 30;
+
+  return 50;
+}
